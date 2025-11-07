@@ -1,4 +1,14 @@
 import express from "express";
+import cors from "cors";   // <-- ADD THIS LINE
+import fs from "fs";
+import { Document, Packer, Paragraph, TextRun } from "docx";
+
+const app = express();
+app.use(cors());  // <-- ADD THIS LINE
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+import express from "express";
 import fs from "fs";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 
