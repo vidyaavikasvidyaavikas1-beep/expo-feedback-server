@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Expo Feedback</title>
+</head>
+<body>
+
+<h1>Leave your feedback</h1>
+
+<form id="feedbackForm">
+  <label>Name (optional):</label><br>
+  <input type="text" id="name"><br><br>
+
+  <label>Feedback:</label><br>
+  <textarea id="feedback" rows="4" cols="40" required></textarea><br><br>
+
+  <button type="submit">Submit</button>
+</form>
+
+<p id="thankYou" style="color:green; display:none;">✅ Thank you for your feedback!</p>
+
+<script>
+const form = document.getElementById("feedbackForm");
+const thankYou = document.getElementById("thankYou");
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const name = document.getElementById("name").value || "Anonymous";
+  const feedback = document.getElementById("feedback").value;
+  const time = new Date().toLocaleString();
+
+  try {
+    const res = await fetch("http://localhost:3000/save-feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, feedback, time })
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      thankYou.style.display = "block";
+      form.reset();
+      setTimeout(() => { thankYou.style.display = "none"; }, 3000);
+    } else {
+      alert("Error submitting feedback: " + data.message);
+    }
+  } catch (err) {
+    alert("Server not reachable. Make sure the Node server is running.");
+    console.error(err);
+  }
+});
+</script>
+
+</body>
+</html>
