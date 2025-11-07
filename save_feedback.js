@@ -8,6 +8,14 @@ app.use(cors());  // <-- ADD THIS LINE
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.get("/", (req, res) => {
+  res.send("✅ Feedback server is running successfully!");
+});
+
+app.post("/save-feedback", async (req, res) => {
+  // your feedback saving logic
+});
+
 import express from "express";
 import fs from "fs";
 import { Document, Packer, Paragraph, TextRun } from "docx";

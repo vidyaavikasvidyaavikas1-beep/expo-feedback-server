@@ -1,58 +1,128 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Expo Feedback</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Expo Feedback</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      padding: 40px;
+      background: #f7f8fa;
+      color: #333;
+      text-align: center;
+    }
+
+    .hidden { display: none; }
+
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+
+    textarea, input {
+      width: 90%;
+      padding: 10px;
+      font-size: 1em;
+      margin-top: 6px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      background: #007BFF;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1em;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    .expired {
+      color: #a00;
+      font-weight: bold;
+    }
+  </style>
 </head>
 <body>
 
-<h1>Leave your feedback</h1>
+  <div class="container" id="activeContent">
+    <h1>Welcome to Our Expo Booth 🎉</h1>
+    <p>Thanks for visiting! Please leave your feedback below.</p>
 
-<form id="feedbackForm">
-  <label>Name (optional):</label><br>
-  <input type="text" id="name"><br><br>
+    <form id="feedbackForm">
+      <label>Your Name (optional):</label><br>
+      <input type="text" id="name" /><br><br>
 
-  <label>Feedback:</label><br>
-  <textarea id="feedback" rows="4" cols="40" required></textarea><br><br>
+      <label>Your Feedback:</label><br>
+      <textarea id="feedback" rows="4" required></textarea><br><br>
 
-  <button type="submit">Submit</button>
-</form>
+      <button type="submit">Submit</button>
+    </form>
 
-<p id="thankYou" style="color:green; display:none;">✅ Thank you for your feedback!</p>
+    <p id="thankYou" class="hidden">✅ Thank you for your feedback!</p>
+  </div>
 
-<script>
-const form = document.getElementById("feedbackForm");
-const thankYou = document.getElementById("thankYou");
+  <div id="expiredMessage" class="container hidden">
+    <h1 class="expired">⏰ This link has expired</h1>
+    <p>The expo website is no longer active.</p>
+  </div>
 
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
+  <script>
+    // === 1️⃣ EXPO TIME LIMIT (48 HOURS) ===
+    const startTime = new Date("2025-11-06T10:00:00Z"); // change if needed
+    const expiryTime = new Date(startTime.getTime() + 48 * 60 * 60 * 1000);
+    const now = new Date();
 
-  const name = document.getElementById("name").value || "Anonymous";
-  const feedback = document.getElementById("feedback").value;
-  const time = new Date().toLocaleString();
-
-  try {
-    const res = await fetch("http://localhost:3000/save-feedback", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, feedback, time })
-    });
-
-    const data = await res.json();
-    if (data.success) {
-      thankYou.style.display = "block";
-      form.reset();
-      setTimeout(() => { thankYou.style.display = "none"; }, 3000);
-    } else {
-      alert("Error submitting feedback: " + data.message);
+    if (now > expiryTime) {
+      document.getElementById("activeContent").classList.add("hidden");
+      document.getElementById("expiredMessage").classList.remove("hidden");
     }
-  } catch (err) {
-    alert("Server not reachable. Make sure the Node server is running.");
-    console.error(err);
-  }
-});
-</script>
 
+    // === 2️⃣ FEEDBACK FORM HANDLING ===
+    const form = document.getElementById("feedbackForm");
+    const thankYou = document.getElementById("thankYou");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const name = document.getElementById("name").value.trim();
+      const feedback = document.getElementById("feedback").value.trim();
+
+      if (!feedback) {
+        alert("Please enter your feedback before submitting!");
+        return;
+      }
+
+      try {
+        const response = await fetch("https://expo-feedback-server.onrender.com/save-feedback", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ name, feedback }),
+});
+
+        if (response.ok) {
+          thankYou.classList.remove("hidden");
+          form.reset();
+        } else {
+          alert("⚠️ Could not connect to the feedback server. Please try again later.");
+        }
+      } catch (err) {
+        alert("⚠️ Could not connect to the feedback server. Please try again later.");
+        console.error(err);
+      }
+    });
+  </script>
 </body>
 </html>
