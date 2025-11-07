@@ -1,63 +1,69 @@
-const express = require("express");
-const fs = require("fs");
-const path = require("path");
-const { Document, Packer, Paragraph, TextRun } = require("docx");
+import express from "express";
+import fs from "fs";
+import { Document, Packer, Paragraph, TextRun } from "docx";
 
 const app = express();
-const PORT = 3000;
-
-// Middleware
 app.use(express.json());
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*"); // allows local HTML to talk to server
-  res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  next();
-});
+app.use(express.urlencoded({ extended: true }));
 
-const feedbackJsonPath = path.join(__dirname, "feedbacks.json");
-const feedbackDocxPath = path.join(__dirname, "feedbacks.docx");
+const feedbackFile = "feedbacks.docx";
+const backupFile = "feedbacks.json";
 
-// POST endpoint to save feedback
-app.post("/save-feedback", async (req, res) => {
-  console.log("Received feedback:", req.body); // debug line
-  const { name, feedback, time } = req.body;
+// ✅ Load existing feedbacks
+let feedbacks = [];
+if (fs.existsSync(backupFile)) {
+  const data = fs.readFileSync(backupFile, "utf-8");
+  feedbacks = JSON.parse(data || "[]");
+}
 
-  if (!feedback) return res.status(400).json({ success: false, message: "Feedback is required" });
+// ✅ Save both JSON + DOCX
+function saveFeedbacksToFiles() {
+  fs.writeFileSync(backupFile, JSON.stringify(feedbacks, null, 2));
 
-  try {
-    // 1️⃣ Load existing feedbacks
-    let allFeedbacks = [];
-    if (fs.existsSync(feedbackJsonPath)) {
-      const data = fs.readFileSync(feedbackJsonPath, "utf-8");
-      allFeedbacks = JSON.parse(data);
-    }
+  const doc = new Document({
+    sections: [
+      {
+        children: feedbacks.map(
+          (f, i) =>
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `Feedback ${i + 1}: ${f.name} - ${f.feedback}`,
+                  bold: true,
+                }),
+              ],
+            })
+        ),
+      },
+    ],
+  });
 
-    // 2️⃣ Add new feedback
-    allFeedbacks.push({ name: name || "Anonymous", feedback, time });
+  const buffer = Packer.toBuffer(doc);
+  buffer.then((data) => {
+    fs.writeFileSync(feedbackFile, data);
+  });
+}
 
-    // 3️⃣ Save JSON backup
-    fs.writeFileSync(feedbackJsonPath, JSON.stringify(allFeedbacks, null, 2));
+// ✅ POST endpoint to receive feedback
+app.post("/save-feedback", (req, res) => {
+  const { name, feedback } = req.body;
 
-    // 4️⃣ Generate Word file
-    const paragraphs = [];
-    allFeedbacks.forEach(fb => {
-      paragraphs.push(new Paragraph({ children: [new TextRun({ text: `Name: ${fb.name}`, bold: true })] }));
-      paragraphs.push(new Paragraph(`Feedback: ${fb.feedback}`));
-      paragraphs.push(new Paragraph(`Time: ${fb.time}`));
-      paragraphs.push(new Paragraph("---------------------------------------------------"));
-    });
-
-    const doc = new Document({ sections: [{ children: paragraphs }] });
-    const buffer = await Packer.toBuffer(doc);
-    fs.writeFileSync(feedbackDocxPath, buffer);
-
-    res.json({ success: true });
-    console.log(`💾 Feedback saved from ${name || "Anonymous"}`);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "Server error" });
+  if (!name || !feedback) {
+    return res.status(400).json({ message: "Missing name or feedback" });
   }
+
+  feedbacks.push({ name, feedback });
+  saveFeedbacksToFiles();
+  res.status(200).json({ message: "Feedback saved successfully!" });
 });
 
-app.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));
+// ✅ Root route (optional)
+app.get("/", (req, res) => {
+  res.send("✅ Feedback server is running successfully!");
+});
+
+// ✅ Render uses PORT from environment variables
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+});
