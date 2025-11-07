@@ -1,86 +1,89 @@
-import express from "express";
-import cors from "cors";   // <-- ADD THIS LINE
-import fs from "fs";
-import { Document, Packer, Paragraph, TextRun } from "docx";
+const express = require("express");
+const cors = require("cors");
+const fs = require("fs");
+const path = require("path");
+const { Document, Packer, Paragraph, TextRun } = require("docx");
 
 const app = express();
-app.use(cors());  // <-- ADD THIS LINE
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Path to the .docx file
+const filePath = path.join(__dirname, "feedbacks.docx");
+
+// Root route
 app.get("/", (req, res) => {
   res.send("✅ Feedback server is running successfully!");
 });
 
+// POST route to save feedback
 app.post("/save-feedback", async (req, res) => {
-  // your feedback saving logic
-});
+  try {
+    const feedback = req.body.feedback;
+    const name = req.body.name || "Anonymous";
+    const date = new Date().toLocaleString();
 
-import express from "express";
-import fs from "fs";
-import { Document, Packer, Paragraph, TextRun } from "docx";
+    console.log("📝 New feedback received:", { name, feedback, date });
 
-const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+    // If the file exists, we’ll append to it
+    let paragraphs = [];
 
-const feedbackFile = "feedbacks.docx";
-const backupFile = "feedbacks.json";
+    if (fs.existsSync(filePath)) {
+      const existingContent = fs.readFileSync(filePath);
+      paragraphs.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: "----------------------------------------",
+              bold: true,
+            }),
+          ],
+        })
+      );
+    }
 
-// ✅ Load existing feedbacks
-let feedbacks = [];
-if (fs.existsSync(backupFile)) {
-  const data = fs.readFileSync(backupFile, "utf-8");
-  feedbacks = JSON.parse(data || "[]");
-}
+    // Add the new feedback
+    paragraphs.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: `Name: ${name}`, bold: true }),
+        ],
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: `Feedback: ${feedback}` }),
+        ],
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: `Date: ${date}` }),
+        ],
+      }),
+      new Paragraph("")
+    );
 
-// ✅ Save both JSON + DOCX
-function saveFeedbacksToFiles() {
-  fs.writeFileSync(backupFile, JSON.stringify(feedbacks, null, 2));
+    const doc = new Document({
+      sections: [
+        {
+          properties: {},
+          children: paragraphs,
+        },
+      ],
+    });
 
-  const doc = new Document({
-    sections: [
-      {
-        children: feedbacks.map(
-          (f, i) =>
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: `Feedback ${i + 1}: ${f.name} - ${f.feedback}`,
-                  bold: true,
-                }),
-              ],
-            })
-        ),
-      },
-    ],
-  });
+    const buffer = await Packer.toBuffer(doc);
+    fs.writeFileSync(filePath, buffer);
 
-  const buffer = Packer.toBuffer(doc);
-  buffer.then((data) => {
-    fs.writeFileSync(feedbackFile, data);
-  });
-}
-
-// ✅ POST endpoint to receive feedback
-app.post("/save-feedback", (req, res) => {
-  const { name, feedback } = req.body;
-
-  if (!name || !feedback) {
-    return res.status(400).json({ message: "Missing name or feedback" });
+    console.log("✅ Feedback saved successfully!");
+    res.status(200).send("Feedback saved successfully!");
+  } catch (error) {
+    console.error("❌ Error saving feedback:", error);
+    res.status(500).send("Error saving feedback");
   }
-
-  feedbacks.push({ name, feedback });
-  saveFeedbacksToFiles();
-  res.status(200).json({ message: "Feedback saved successfully!" });
 });
 
-// ✅ Root route (optional)
-app.get("/", (req, res) => {
-  res.send("✅ Feedback server is running successfully!");
-});
-
-// ✅ Render uses PORT from environment variables
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
